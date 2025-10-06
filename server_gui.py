@@ -26,8 +26,8 @@ class ServerGUI:
         
         self.setup_ui()
         
-        # Auto-start server when GUI opens
-        self.start_server()
+        # Auto-start server after UI is ready
+        self.root.after(100, self.start_server)
         
         self.update_display()
     
@@ -463,7 +463,10 @@ class ServerGUI:
             self.server_start_time = datetime.now()
             self.server_thread.start()
             
-            self.status_label.config(text="Server Status: Running", fg='green')
+            if hasattr(self, 'status_label'):
+                self.status_label.config(text="Server Status: Running", fg='green')
+                # Update server info with actual IP
+                self.info_label.config(text=self.get_server_info_text())
             
             self.log_message("Server started on localhost:12345")
     

@@ -157,15 +157,23 @@ class OnlineGameController:
             # Handle auto-create or auto-join on first loop
             if not auto_handled and self.current_view == "lobby":
                 if self.auto_create_room:
-                    self.client.connect()
-                    if self.client.connected:
+                    if not self.client.connect():
+                        self.lobby_renderer.set_status(
+                            f"Failed to connect to server at {self.client.host}:12345. Make sure server is running!",
+                            RED
+                        )
+                    else:
                         self.client.create_room(self.player_name)
-                        auto_handled = True
+                    auto_handled = True
                 elif self.auto_join_room:
-                    self.client.connect()
-                    if self.client.connected:
+                    if not self.client.connect():
+                        self.lobby_renderer.set_status(
+                            f"Failed to connect to server at {self.client.host}:12345. Check IP and make sure server is running!",
+                            RED
+                        )
+                    else:
                         self.client.join_room(self.auto_join_room, self.player_name)
-                        auto_handled = True
+                    auto_handled = True
             
             # Handle events
             for event in pygame.event.get():

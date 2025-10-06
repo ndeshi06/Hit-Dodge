@@ -19,35 +19,47 @@ A 4-player online multiplayer game built with Pygame where players must hit or d
 
 ## How to Play Online
 
-### Option 1: Use the Launcher (Recommended)
-```bash
-python launcher.py
-```
-Choose "Run Server" to host a game or "Join Game" to connect to someone's server.
+### Step 1: Start the Server (Host Only)
 
-### Option 2: Manual Setup
+**IMPORTANT**: The host must start the server FIRST before anyone can join!
 
-#### Start the Server with GUI
 ```bash
 python server_gui.py
 ```
-- The server GUI shows active rooms, player lists, and server statistics
-- Click "Start Server" to begin accepting connections
-- Share your IP address with friends for them to connect
 
-#### Start the Game Client
+The Server GUI will:
+- ✅ **Auto-start the server** when it opens
+- 📡 Display your IP address for LAN connections (e.g., `192.168.1.100:12345`)
+- 📊 Show active rooms, players, and statistics
+- 🎮 Allow you to create/join rooms directly from the GUI
+
+**For LAN Play**: Share the IP address shown in the server GUI with your friends.
+
+### Step 2: Connect as Player
+
+You have two options:
+
+#### Option A: Use Server GUI (Easy)
+1. On the server computer, go to the **"Room Management"** tab
+2. Enter your player name
+3. Click **"Create New Room"** to host or enter Room ID to **"Join Room"**
+4. A game window will open automatically
+
+#### Option B: Run Client Manually
 ```bash
 python main.py
 ```
 
-### 3. Create or Join a Room
-- **Create Room**: Leave Room ID empty and press ENTER (generates random 4-char ID)
-- **Join Room**: Enter a 4-character room ID and press ENTER
-- Use TAB to switch between Player Name and Room ID inputs
+In the lobby:
+1. Enter your player name
+2. **If joining from another PC**: Enter the server's IP address (e.g., `192.168.1.100`)
+3. Click **"Create New Room"** or **"Join Existing Room"**
+4. If joining: Enter the 4-character Room ID
 
-### 4. Wait for Players
-- Game requires exactly 4 players to start
+### Step 3: Wait for Players
+- Game requires exactly **4 players** to start
 - The waiting room shows all current members
+- Once 4 players join, the game starts automatically!
 - Share your room ID with friends to join
 
 ## Architecture (MVC + Network)
