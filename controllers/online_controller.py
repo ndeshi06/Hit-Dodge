@@ -112,9 +112,15 @@ class OnlineGameController:
                 self.lobby_renderer.set_status("Please enter a room ID!", RED)
                 return
             
-            if not self.client.connected:
+            # Get server IP from lobby input
+            server_ip = self.lobby_renderer.server_ip_input or "localhost"
+            
+            # Reconnect if the server IP changed
+            if server_ip != self.client.host or not self.client.connected:
+                self.client.disconnect()
+                self.client.host = server_ip
                 if not self.client.connect():
-                    self.lobby_renderer.set_status("Failed to connect to server!", RED)
+                    self.lobby_renderer.set_status(f"Failed to connect to {server_ip}!", RED)
                     return
             
             self.client.join_room(

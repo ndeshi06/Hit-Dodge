@@ -18,6 +18,7 @@ def main():
     create_room = False
     join_room_id = None
     player_name = "Player"
+    host = "localhost"
     
     i = 1
     while i < len(sys.argv):
@@ -30,9 +31,12 @@ def main():
         elif arg == "--name" and i + 1 < len(sys.argv):
             player_name = sys.argv[i + 1]
             i += 1  # Skip next argument as it's the player name
+        elif arg == "--host" and i + 1 < len(sys.argv):
+            host = sys.argv[i + 1]
+            i += 1  # Skip next argument as it's the host/IP
         i += 1
     
-    controller = OnlineGameController()
+    controller = OnlineGameController(host=host)
     
     # Set player name if provided
     if player_name != "Player":

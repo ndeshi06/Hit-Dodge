@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext
 import threading
 import time
+import os
 from datetime import datetime
 from network.server import GameServer
 
@@ -15,6 +16,9 @@ class ServerGUI:
         self.root.title("Hit & Dodge Server")
         self.root.geometry("800x600")
         self.root.configure(bg='#f0f0f0')
+        
+        # Get current working directory
+        self.game_dir = os.path.dirname(os.path.abspath(__file__))
         
         self.server = None
         self.server_thread = None
@@ -57,7 +61,7 @@ class ServerGUI:
         # Server info
         self.info_label = tk.Label(
             status_frame,
-            text="Players can connect to localhost:12345",
+            text=self.get_server_info_text(),
             font=('Arial', 10),
             bg='#f0f0f0',
             fg='blue'
@@ -180,8 +184,27 @@ class ServerGUI:
         )
         join_frame.pack(fill='x', padx=50, pady=20)
         
+        # Server IP
+        ip_frame = tk.Frame(join_frame)
+        ip_frame.pack(fill='x', pady=(0, 10))
+        
+        tk.Label(
+            ip_frame,
+            text="Server IP Address:",
+            font=('Arial', 10)
+        ).pack(anchor='w')
+        
+        self.server_ip_entry = tk.Entry(
+            ip_frame,
+            font=('Arial', 12),
+            width=30
+        )
+        self.server_ip_entry.pack(fill='x', pady=(5, 0))
+        self.server_ip_entry.insert(0, "localhost")
+        
+        # Player Name
         name_frame = tk.Frame(join_frame)
-        name_frame.pack(fill='x', pady=(0, 10))
+        name_frame.pack(fill='x', pady=(10, 10))
         
         tk.Label(
             name_frame,
@@ -286,7 +309,7 @@ class ServerGUI:
             # Launch the main client with create room mode
             subprocess.Popen([
                 "python", "main.py", "--create", "--name", player_name
-            ], cwd="e:\\HIT&DODGE")
+            ], cwd=self.game_dir)
             
             self.management_status.config(
                 text=f"Launched game client for {player_name} (Create Room)",
@@ -302,8 +325,12 @@ class ServerGUI:
         """Join an existing room and launch the game client"""
         try:
             import subprocess
+            server_ip = self.server_ip_entry.get().strip()
             player_name = self.join_name_entry.get().strip()
             room_id = self.room_id_entry.get().strip().upper()
+            
+            if not server_ip:
+                server_ip = "localhost"
             
             if not player_name:
                 player_name = "Player"
@@ -317,11 +344,11 @@ class ServerGUI:
             
             # Launch the main client with join room mode
             subprocess.Popen([
-                "python", "main.py", "--join", room_id, "--name", player_name
-            ], cwd="e:\\HIT&DODGE")
+                "python", "main.py", "--join", room_id, "--name", player_name, "--host", server_ip
+            ], cwd=self.game_dir)
             
             self.management_status.config(
-                text=f"Launched game client for {player_name} (Join Room {room_id})",
+                text=f"Launched game client for {player_name} (Join Room {room_id} on {server_ip})",
                 fg='green'
             )
         except Exception as e:
@@ -329,115 +356,6 @@ class ServerGUI:
                 text=f"Error launching client: {str(e)}",
                 fg='red'
             )
-    
-    def setup_management_tab(self, parent):
-        """Setup the room management tab"""
-        # Title
-        title_label = tk.Label(
-            parent,
-            text="Room Management",
-            font=('Arial', 14, 'bold')
-        )
-        title_label.pack(pady=20)
-        
-        # Create Room section
-        create_frame = tk.LabelFrame(
-            parent,
-            text="Create New Room",
-            font=('Arial', 12, 'bold'),
-            padx=20,
-            pady=20
-        )
-        create_frame.pack(fill='x', padx=50, pady=20)
-        
-        tk.Label(
-            create_frame,
-            text="Player Name:",
-            font=('Arial', 10)
-        ).pack(anchor='w', pady=(0, 5))
-        
-        self.create_name_entry = tk.Entry(
-            create_frame,
-            font=('Arial', 12),
-            width=30
-        )
-        self.create_name_entry.pack(fill='x', pady=(0, 10))
-        self.create_name_entry.insert(0, "Host Player")
-        
-        self.create_button = tk.Button(
-            create_frame,
-            text="🏠 Create New Room",
-            command=self.create_room_local,
-            bg='#4CAF50',
-            fg='white',
-            font=('Arial', 12, 'bold'),
-            height=2
-        )
-        self.create_button.pack(fill='x')
-        
-        # Join Room section
-        join_frame = tk.LabelFrame(
-            parent,
-            text="Join Existing Room",
-            font=('Arial', 12, 'bold'),
-            padx=20,
-            pady=20
-        )
-        join_frame.pack(fill='x', padx=50, pady=20)
-        
-        name_frame = tk.Frame(join_frame)
-        name_frame.pack(fill='x', pady=(0, 10))
-        
-        tk.Label(
-            name_frame,
-            text="Player Name:",
-            font=('Arial', 10)
-        ).pack(anchor='w')
-        
-        self.join_name_entry = tk.Entry(
-            name_frame,
-            font=('Arial', 12),
-            width=30
-        )
-        self.join_name_entry.pack(fill='x', pady=(5, 0))
-        self.join_name_entry.insert(0, "Player")
-        
-        room_frame = tk.Frame(join_frame)
-        room_frame.pack(fill='x', pady=(10, 10))
-        
-        tk.Label(
-            room_frame,
-            text="Room ID (4 characters):",
-            font=('Arial', 10)
-        ).pack(anchor='w')
-        
-        self.room_id_entry = tk.Entry(
-            room_frame,
-            font=('Arial', 14, 'bold'),
-            width=10,
-            justify='center'
-        )
-        self.room_id_entry.pack(pady=(5, 0))
-        
-        self.join_button = tk.Button(
-            join_frame,
-            text="🚪 Join Room",
-            command=self.join_room_local,
-            bg='#2196F3',
-            fg='white',
-            font=('Arial', 12, 'bold'),
-            height=2
-        )
-        self.join_button.pack(fill='x', pady=(10, 0))
-        
-        # Status display
-        self.management_status = tk.Label(
-            parent,
-            text="",
-            font=('Arial', 10),
-            fg='blue'
-        )
-        self.management_status.pack(pady=10)
     
     def setup_logs_tab(self, parent):
         """Setup the logs display tab"""
@@ -520,6 +438,19 @@ class ServerGUI:
             self.stats_labels[key] = value_label
         
         self.server_start_time = None
+    
+    def get_server_info_text(self):
+        """Get server connection info including local IP"""
+        import socket
+        try:
+            # Get local IP
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            s.close()
+            return f"Connect: localhost:12345 (same PC) or {local_ip}:12345 (LAN)"
+        except:
+            return "Connect: localhost:12345 or <your-ip>:12345"
     
     def start_server(self):
         """Start the game server"""

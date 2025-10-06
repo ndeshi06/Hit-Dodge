@@ -12,7 +12,8 @@ class LobbyRenderer:
         self.tiny_font = pygame.font.Font(None, 24)
         self.room_id_input = ""
         self.player_name_input = "Player"
-        self.input_active = "name"  # "name" or "room"
+        self.server_ip_input = "localhost"
+        self.input_active = "name"  # "name", "room", or "ip"
         self.status_message = ""
         self.status_color = BLACK
         self.show_room_input = False  # Show room input only when joining
@@ -24,6 +25,8 @@ class LobbyRenderer:
                     self.player_name_input = self.player_name_input[:-1]
                 elif self.input_active == "room" and len(self.room_id_input) > 0:
                     self.room_id_input = self.room_id_input[:-1]
+                elif self.input_active == "ip" and len(self.server_ip_input) > 0:
+                    self.server_ip_input = self.server_ip_input[:-1]
         elif event.type == pygame.TEXTINPUT:
             if self.input_active == "name" and len(self.player_name_input) < 15:
                 if event.text.isalnum() or event.text == " ":
@@ -31,6 +34,9 @@ class LobbyRenderer:
             elif self.input_active == "room" and len(self.room_id_input) < 4:
                 if event.text.isalnum():
                     self.room_id_input += event.text.upper()
+            elif self.input_active == "ip" and len(self.server_ip_input) < 30:
+                if event.text.isalnum() or event.text in ".:":
+                    self.server_ip_input += event.text
         return None
     
     def handle_button_click(self, mouse_pos):
@@ -58,9 +64,15 @@ class LobbyRenderer:
         if name_rect.collidepoint(mouse_pos):
             self.input_active = "name"
         
+        # Server IP input (if joining)
+        if self.show_room_input:
+            ip_rect = pygame.Rect(SCREEN_WIDTH // 2 - 150, 520, 300, 40)
+            if ip_rect.collidepoint(mouse_pos):
+                self.input_active = "ip"
+        
         # Room ID input (if visible)
         if self.show_room_input:
-            room_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 520, 200, 40)
+            room_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 580, 200, 40)
             if room_rect.collidepoint(mouse_pos):
                 self.input_active = "room"
         
@@ -115,12 +127,26 @@ class LobbyRenderer:
         
         # Room ID input (only show if joining)
         if self.show_room_input:
-            room_label = self.small_font.render("Enter Room ID (4 characters):", True, BLACK)
-            room_label_rect = room_label.get_rect(center=(SCREEN_WIDTH // 2, 510))
+            # Server IP input
+            ip_label = self.small_font.render("Server IP Address:", True, BLACK)
+            ip_label_rect = ip_label.get_rect(center=(SCREEN_WIDTH // 2, 510))
+            screen.blit(ip_label, ip_label_rect)
+            
+            ip_color = BLUE if self.input_active == "ip" else GRAY
+            ip_rect = pygame.Rect(SCREEN_WIDTH // 2 - 150, 540, 300, 40)
+            pygame.draw.rect(screen, WHITE, ip_rect)
+            pygame.draw.rect(screen, ip_color, ip_rect, 3)
+            
+            ip_text = self.tiny_font.render(self.server_ip_input, True, BLACK)
+            screen.blit(ip_text, (ip_rect.x + 10, ip_rect.y + 10))
+            
+            # Room ID input
+            room_label = self.small_font.render("Room ID (4 characters):", True, BLACK)
+            room_label_rect = room_label.get_rect(center=(SCREEN_WIDTH // 2, 590))
             screen.blit(room_label, room_label_rect)
             
             room_color = BLUE if self.input_active == "room" else GRAY
-            room_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 540, 200, 40)
+            room_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 620, 200, 40)
             pygame.draw.rect(screen, WHITE, room_rect)
             pygame.draw.rect(screen, room_color, room_rect, 3)
             
