@@ -217,3 +217,21 @@ class GameRenderer:
                 text = self.font.render("Game Over!", True, BLACK)
             text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, 50))
             screen.blit(text, text_rect)
+    
+    def render(self, screen, game):
+        """Render the local game"""
+        # Clear screen
+        screen.fill(WHITE)
+        
+        # Draw planet
+        self.draw_planet(screen)
+        
+        # Draw ball
+        self.draw_ball(screen, game.ball)
+        
+        # Draw players
+        for player in game.players:
+            self.draw_player(screen, player)
+        
+        # Draw UI
+        self.draw_ui(screen, game)

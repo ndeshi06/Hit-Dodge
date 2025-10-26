@@ -1,150 +1,133 @@
-# Hit & Dodge Game - Online Multiplayer
+# Hit & Dodge Game
 
-A 4-player online multiplayer game built with Pygame where players must hit or dodge a ball orbiting around a planet.
+A 4-player multiplayer game built with Pygame where players must hit or dodge a ball orbiting around a planet.
 
 ## Game Rules
 
-- 4 players join a room using a 4-character room ID
-- Game starts when room has exactly 4 players
+- 4 players compete in an arena
 - A ball spawns between random players and orbits around the planet
 - Players can **Hit** to reverse the ball's direction and increase its speed
 - Players can **Dodge** to hide underground for 1 second
 - If the ball touches a player, they are eliminated and fly off screen
 - Last player standing wins!
 
-## Controls
+## How to Play
 
+### 🎮 Local Multiplayer (4 người trên 1 máy)
+
+```bash
+python local_multiplayer.py
+```
+
+**Controls:**
+- **Player 1 (Red)**: Q = Hit, A = Dodge
+- **Player 2 (Green)**: W = Hit, S = Dodge
+- **Player 3 (Blue)**: O = Hit, L = Dodge
+- **Player 4 (Yellow)**: P = Hit, ; = Dodge
+
+### 🌐 P2P Multiplayer (4 máy qua mạng LAN)
+
+```bash
+python p2p_multiplayer.py
+```
+
+#### Host (Người tạo phòng):
+1. Nhập tên của bạn
+2. Click **"TẠO PHÒNG (HOST)"**
+3. Chia sẻ **IP Address** và **Mã phòng 4 ký tự** cho bạn bè
+
+#### Client (Người tham gia):
+1. Nhập tên của bạn
+2. Nhập **IP của host** và **mã phòng**
+3. Click **"THAM GIA"**
+
+**Controls:**
 - **Hit**: SPACE or UP Arrow
 - **Dodge**: DOWN Arrow or ENTER
 
-## How to Play Online
+#### Troubleshooting
 
-### Step 1: Start the Server (Host Only)
-
-**IMPORTANT**: The host must start the server FIRST before anyone can join!
-
+Nếu không kết nối được:
 ```bash
-python server_gui.py
+python network_test.py
 ```
 
-The Server GUI will:
-- ✅ **Auto-start the server** when it opens
-- 📡 Display your IP address for LAN connections (e.g., `192.168.1.100:12345`)
-- 📊 Show active rooms, players, and statistics
-- 🎮 Allow you to create/join rooms directly from the GUI
+Checklist:
+- ✅ Cùng mạng WiFi/LAN
+- ✅ Firewall tắt hoặc cho phép port 12345
+- ✅ Host đã tạo phòng trước
+- ✅ IP và mã phòng chính xác
 
-**For LAN Play**: Share the IP address shown in the server GUI with your friends.
+Xem hướng dẫn chi tiết: [HUONG_DAN.md](HUONG_DAN.md)
 
-### Step 2: Connect as Player
+## Requirements
 
-You have two options:
-
-#### Option A: Use Server GUI (Easy)
-1. On the server computer, go to the **"Room Management"** tab
-2. Enter your player name
-3. Click **"Create New Room"** to host or enter Room ID to **"Join Room"**
-4. A game window will open automatically
-
-#### Option B: Run Client Manually
 ```bash
-python main.py
+pip install -r requirements.txt
 ```
 
-In the lobby:
-1. Enter your player name
-2. **If joining from another PC**: Enter the server's IP address (e.g., `192.168.1.100`)
-3. Click **"Create New Room"** or **"Join Existing Room"**
-4. If joining: Enter the 4-character Room ID
+or simply:
 
-### Step 3: Wait for Players
-- Game requires exactly **4 players** to start
-- The waiting room shows all current members
-- Once 4 players join, the game starts automatically!
-- Share your room ID with friends to join
-
-## Architecture (MVC + Network)
-
-### Models (`/models/`)
-- `player.py` - Player logic, state, and behavior
-- `ball.py` - Ball physics and movement
-- `game.py` - Game state management and collision detection
-- `player_state.py` - Player state enumeration
-
-### Views (`/views/`)
-- `game_renderer.py` - Game rendering for both local and network data
-- `lobby_renderer.py` - Lobby and waiting room UI
-
-### Controllers (`/controllers/`)
-- `online_controller.py` - Online multiplayer input handling and game flow
-- `game_controller.py` - Local game controller (legacy)
-
-### Network (`/network/`)
-- `server.py` - Game server handling rooms and game logic
-- `client.py` - Network client for connecting to server
-- `protocol.py` - Network message protocol definitions
-
-### Config (`/config/`)
-- `constants.py` - Game constants and settings
+```bash
+pip install pygame
+```
 
 ## Features
 
-- **Room-based Multiplayer**: Create or join rooms with 4-character IDs
-- **Real-time Synchronization**: Game state synchronized across all clients
+- **Local Multiplayer**: 4 players on one computer with split keyboard
+- **P2P Network**: Direct peer-to-peer connection, no server needed
+- **Room Codes**: Easy 4-character room codes to share
 - **Hit Range Detection**: Players can only hit when ball is in range
 - **Swing Animation**: Stick rotates towards ball direction when hitting
 - **Hit Cooldown**: 0.5 second cooldown between hits to prevent spam
 - **Flying Elimination**: Eliminated players fly off screen with physics
 - **Ball Spawn System**: Ball spawns between random players with 3-second countdown
 - **Speed Reset**: Ball speed resets when a player is eliminated
-- **Connection Handling**: Graceful handling of player disconnections
 
 ## File Structure
 
 ```
-HIT&DODGE/
-├── launcher.py                # Game launcher (server or client)
-├── main.py                    # Client entry point
-├── server.py                  # Server entry point (console)
-├── server_gui.py              # Server entry point (GUI)
+Hit-Dodge/
+├── local_multiplayer.py      # Local 4-player mode
+├── p2p_multiplayer.py         # P2P online mode
+├── network_test.py            # Network diagnostic tool
 ├── config/
-│   ├── __init__.py
 │   └── constants.py           # Game constants
 ├── models/
-│   ├── __init__.py
 │   ├── player.py             # Player model
 │   ├── ball.py               # Ball model
 │   ├── game.py               # Game logic
 │   └── player_state.py       # Player states
 ├── views/
-│   ├── __init__.py
 │   ├── game_renderer.py      # Game rendering
-│   └── lobby_renderer.py     # Lobby/waiting room UI
-├── controllers/
-│   ├── __init__.py
-│   ├── online_controller.py  # Online multiplayer controller
-│   └── game_controller.py    # Local game controller (legacy)
+│   └── lobby_renderer.py     # Lobby UI
 ├── network/
-│   ├── __init__.py
-│   ├── server.py             # Game server
-│   ├── client.py             # Network client
-│   └── protocol.py           # Network protocol
+│   ├── server.py             # Game server (legacy)
+│   ├── client.py             # Network client (legacy)
+│   └── protocol.py           # Network protocol (legacy)
+├── controllers/
+│   ├── online_controller.py  # Online controller (legacy)
+│   └── game_controller.py    # Game controller (legacy)
 ├── requirements.txt
-└── README.md
+├── README.md
+└── HUONG_DAN.md              # Vietnamese guide
 ```
 
-## Network Protocol
+## Tips
 
-The game uses a custom JSON-based protocol over TCP sockets:
+### Playing over Internet (not on same LAN):
+You need **Port Forwarding** on the router:
+1. Access router settings (usually `192.168.1.1`)
+2. Find **Port Forwarding** or **Virtual Server**
+3. Forward port `12345` to host machine's IP
+4. Use your **Public IP** (search "what is my ip" on Google)
+5. Clients enter this public IP
 
-- **Room Management**: Create/join rooms with unique IDs
-- **Player Actions**: Hit and dodge actions sent to server
-- **Game State**: Complete game state synchronized to all clients
-- **Connection Events**: Handle player joins, leaves, and disconnections
+### Network optimization:
+- Use wired LAN instead of WiFi for better stability
+- Ensure sufficient bandwidth (at least 1 Mbps)
+- Close other network-intensive apps
 
-## Requirements
+## License
 
-```bash
-pip install pygame
-```
-
-No additional network libraries required - uses Python's built-in socket module.
+This project is open source and available for educational purposes.
