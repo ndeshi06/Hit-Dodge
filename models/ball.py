@@ -14,6 +14,9 @@ class Ball:
         self.direction = 1  # 1 for clockwise, -1 for counterclockwise
         self.spawn_timer = BALL_SPAWN_DELAY  # Time before ball starts moving
         self.is_active = False  # Whether ball is moving
+        self.x = 0  # Current x position
+        self.y = 0  # Current y position
+        self.countdown = BALL_SPAWN_DELAY  # Countdown timer for display
         self.spawn_between_players()
     
     def spawn_between_players(self):
@@ -39,6 +42,12 @@ class Ball:
         
         self.is_active = False
         self.spawn_timer = BALL_SPAWN_DELAY
+        self.countdown = BALL_SPAWN_DELAY
+        
+        # Update position
+        pos = self.get_position()
+        self.x = pos[0]
+        self.y = pos[1]
         
     def get_position(self):
         """Get ball position"""
@@ -64,8 +73,13 @@ class Ball:
         if not self.is_active:
             # Count down spawn timer
             self.spawn_timer -= dt
+            self.countdown = max(0, self.spawn_timer)
             if self.spawn_timer <= 0:
                 self.is_active = True
+            # Update position even when not active
+            pos = self.get_position()
+            self.x = pos[0]
+            self.y = pos[1]
             return
         
         # Calculate angular velocity based on speed
@@ -78,3 +92,9 @@ class Ball:
             self.angle += 2 * math.pi
         elif self.angle >= 2 * math.pi:
             self.angle -= 2 * math.pi
+        
+        # Update x, y position
+        pos = self.get_position()
+        self.x = pos[0]
+        self.y = pos[1]
+        self.countdown = 0

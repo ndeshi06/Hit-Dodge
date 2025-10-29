@@ -237,7 +237,7 @@ class P2PClient:
         try:
             print(f"Attempting to connect to {host_ip}:{port}...")
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.settimeout(10)  # 10 second timeout
+            self.socket.settimeout(600)  # 10 second timeout
             self.socket.connect((host_ip, port))
             print("Connected!")
             
@@ -260,6 +260,9 @@ class P2PClient:
                 self.players = {int(k): v for k, v in response['players'].items()}
                 self.connected = True
                 print(f"Joined as player {self.player_id}")
+                
+                # Remove timeout for ongoing communication
+                self.socket.settimeout(None)
                 
                 # Bắt đầu nhận tin nhắn
                 recv_thread = threading.Thread(target=self.receive_messages)
@@ -291,6 +294,7 @@ class P2PClient:
             while self.connected:
                 data = self.socket.recv(4096).decode()
                 if not data:
+                    print("Connection closed by host")
                     break
                 
                 buffer += data
@@ -305,6 +309,10 @@ class P2PClient:
                     elif msg['type'] == 'game_state':
                         self.game_state = msg['state']
                         
+        except socket.timeout:
+            print("Connection lost: timed out")
+        except ConnectionResetError:
+            print("Connection lost: connection reset by host")
         except Exception as e:
             print(f"Connection lost: {e}")
         finally:
