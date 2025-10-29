@@ -204,7 +204,8 @@ class P2PHost:
                 'state': player.state.value,
                 'color': player.color,
                 'stick_angle': player.stick_angle,
-                'swing_progress': player.swing_progress
+                'swing_progress': player.swing_progress,
+                'hit_cooldown': player.hit_cooldown
             })
         
         ball_data = {
@@ -717,6 +718,21 @@ class P2PGameController:
                 pygame.draw.circle(self.screen, color, (x, y), PLAYER_RADIUS // 2)
             else:
                 pygame.draw.circle(self.screen, color, (x, y), PLAYER_RADIUS)
+                
+                # Draw hit range indicator when standing
+                if p['state'] == PlayerState.STANDING.value:
+                    hit_cooldown = p.get('hit_cooldown', 0)
+                    if hit_cooldown <= 0:
+                        # Normal hit range indicator when ready to hit
+                        # Create surface with alpha for transparency
+                        s = pygame.Surface((HIT_RANGE*2, HIT_RANGE*2), pygame.SRCALPHA)
+                        pygame.draw.circle(s, (*color, 50), (HIT_RANGE, HIT_RANGE), HIT_RANGE, 2)
+                        self.screen.blit(s, (x - HIT_RANGE, y - HIT_RANGE))
+                    else:
+                        # Dimmed hit range indicator during cooldown
+                        s = pygame.Surface((HIT_RANGE*2, HIT_RANGE*2), pygame.SRCALPHA)
+                        pygame.draw.circle(s, (*color, 20), (HIT_RANGE, HIT_RANGE), HIT_RANGE, 1)
+                        self.screen.blit(s, (x - HIT_RANGE, y - HIT_RANGE))
                 
                 # Draw stick
                 stick_length = 35
