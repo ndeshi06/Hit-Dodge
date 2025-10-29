@@ -63,11 +63,16 @@ class Player:
     
     def hit_ball(self, ball):
         """Hit the ball, reversing its direction and increasing speed"""
+        # Debug: check conditions
+        print(f"Player {self.id} trying to hit: state={self.state}, cooldown={self.hit_cooldown:.2f}")
+        
         if self.state == PlayerState.STANDING and self.hit_cooldown <= 0:
             # Check if ball can be hit before starting swing
             ball_pos = ball.get_position()
             distance = math.sqrt((self.x - ball_pos[0])**2 + (self.y - ball_pos[1])**2)
             can_affect_ball = ball.is_active and distance <= HIT_RANGE
+            
+            print(f"  Ball distance: {distance:.1f}, HIT_RANGE: {HIT_RANGE}, is_active: {ball.is_active}, can_affect: {can_affect_ball}")
             
             # Calculate angle towards the ball for swing animation
             dx = ball_pos[0] - self.x
@@ -106,8 +111,13 @@ class Player:
             if can_affect_ball:
                 ball.reverse_direction()
                 ball.increase_speed()
+                print(f"  BALL HIT! New speed: {ball.speed:.1f}")
                 return True
+            else:
+                print(f"  Swing animation only (ball not in range)")
             return False
+        else:
+            print(f"  Cannot hit: wrong state or cooldown")
         return False
     
     def eliminate(self, ball_x, ball_y):

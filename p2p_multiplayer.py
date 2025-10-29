@@ -27,6 +27,7 @@ class P2PHost:
         self.game = None
         self.game_started = False
         self.player_actions = {}  # player_id -> latest action
+        self.action_lock = threading.Lock()  # Lock for thread-safe access
         
     def start(self, port=12345):
         """Khởi động host server"""
@@ -84,7 +85,10 @@ class P2PHost:
                     client_thread.daemon = True
                     client_thread.start()
                     
-                    # Nếu đủ 4 người, bắt đầu game
+                    print(f"Player {player_id} ({player_name}) joined. Total players: {len(self.players)}")
+                    
+                    # Nếu đủ 2 người, có thể bắt đầu game (tối đa 4)
+                    # Tự động start khi đủ 4 người, hoặc host có thể start thủ công
                     if len(self.players) == 4:
                         time.sleep(0.5)  # Đợi chút để mọi người nhận được room update
                         self.start_game()
@@ -109,7 +113,9 @@ class P2PHost:
                     msg = json.loads(line)
                     
                     if msg['type'] == 'action':
-                        self.player_actions[player_id] = msg['action']
+                        with self.action_lock:
+                            self.player_actions[player_id] = msg['action']
+                        print(f"Received action from player {player_id}: {msg['action']}")
                         
         except Exception as e:
             print(f"Client {player_id} disconnected: {e}")
@@ -152,14 +158,20 @@ class P2PHost:
         
         try:
             # Xử lý actions của người chơi
-            for player_id, action in self.player_actions.items():
+            with self.action_lock:
+                actions_to_process = self.player_actions.copy()
+                self.player_actions.clear()
+            
+            for player_id, action in actions_to_process.items():
                 if player_id < len(self.game.players):
                     player = self.game.players[player_id]
+                    print(f"Processing action for player {player_id}: {action}")
                     if action == 'hit':
-                        player.hit_ball(self.game.ball)
+                        result = player.hit_ball(self.game.ball)
+                        print(f"  Hit result: {result}")
                     elif action == 'dodge':
                         player.start_dodge()
-            self.player_actions.clear()
+                        print(f"  Dodge started")
             
             # Xử lý action của host (player 0)
             # (Sẽ được xử lý từ controller)
@@ -510,7 +522,12 @@ class P2PGameController:
         
         if len(players) < 4:
             waiting_text = font_normal.render("Đang chờ người chơi...", True, GRAY)
-            self.screen.blit(waiting_text, (SCREEN_WIDTH // 2 - waiting_text.get_width() // 2, 500))
+            self.screen.blit(waiting_text, (SCREEN_WIDTH // 2 - waiting_text.get_width() // 2, 480))
+            
+            # Nếu là host và có ít nhất 2 người, hiển thị nút start
+            if self.mode == 'host' and len(players) >= 2:
+                start_hint = font_small.render("Nhấn SPACE để bắt đầu game (không cần chờ đủ 4 người)", True, GREEN)
+                self.screen.blit(start_hint, (SCREEN_WIDTH // 2 - start_hint.get_width() // 2, 520))
     
     def handle_menu_input(self, event):
         """Xử lý input trong menu"""
@@ -616,6 +633,11 @@ class P2PGameController:
                 else:
                     if self.current_view == "menu":
                         self.handle_menu_input(event)
+                    elif self.current_view == "waiting":
+                        # Cho phép host start game bằng SPACE khi có ít nhất 2 người
+                        if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                            if self.mode == 'host' and len(self.host.players) >= 2 and not self.host.game_started:
+                                self.host.start_game()
                     elif self.current_view == "game":
                         self.handle_game_input(event)
             
