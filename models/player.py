@@ -16,6 +16,7 @@ class Player:
         self.hit_cooldown = 0  # Time remaining before can hit again
         self.stick_angle = 0  # Angle of the stick
         self.swing_target_angle = 0  # Target angle to swing towards when hitting ball
+        self.swing_progress = 0  # Progress of swing animation (0-1)
         self.fly_velocity_x = 0  # For flying off screen animation
         self.fly_velocity_y = 0
         self.x = 0  # Current screen position
@@ -141,6 +142,7 @@ class Player:
             self.swing_timer -= dt
             # Update swing animation - swing towards the ball direction
             progress = 1 - (self.swing_timer / SWING_DURATION)
+            self.swing_progress = progress
             # Create a smooth swing motion towards the target
             swing_intensity = math.sin(progress * math.pi)  # 0 -> 1 -> 0
             self.stick_angle = math.degrees(self.swing_target_angle * swing_intensity)
@@ -149,6 +151,7 @@ class Player:
                 self.state = PlayerState.STANDING
                 self.stick_angle = 0
                 self.swing_target_angle = 0
+                self.swing_progress = 0
         
         elif self.state == PlayerState.FLYING_OFF:
             # Apply physics for flying off screen
