@@ -131,6 +131,7 @@ class P2PHost:
         """Bắt đầu game"""
         self.game = Game()
         self.game_started = True
+        print("Host: Starting game with players:", self.players)
         
         msg = {'type': 'game_start'}
         self.broadcast(msg)
@@ -149,29 +150,34 @@ class P2PHost:
         if not self.game_started or not self.game:
             return
         
-        # Xử lý actions của người chơi
-        for player_id, action in self.player_actions.items():
-            if player_id < len(self.game.players):
-                player = self.game.players[player_id]
-                if action == 'hit':
-                    player.hit_ball(self.game.ball)
-                elif action == 'dodge':
-                    player.start_dodge()
-        self.player_actions.clear()
-        
-        # Xử lý action của host (player 0)
-        # (Sẽ được xử lý từ controller)
-        
-        # Update game
-        self.game.update(dt)
-        
-        # Tạo game state và broadcast
-        game_state = self.create_game_state()
-        msg = {
-            'type': 'game_state',
-            'state': game_state
-        }
-        self.broadcast(msg)
+        try:
+            # Xử lý actions của người chơi
+            for player_id, action in self.player_actions.items():
+                if player_id < len(self.game.players):
+                    player = self.game.players[player_id]
+                    if action == 'hit':
+                        player.hit_ball(self.game.ball)
+                    elif action == 'dodge':
+                        player.start_dodge()
+            self.player_actions.clear()
+            
+            # Xử lý action của host (player 0)
+            # (Sẽ được xử lý từ controller)
+            
+            # Update game
+            self.game.update(dt)
+            
+            # Tạo game state và broadcast
+            game_state = self.create_game_state()
+            msg = {
+                'type': 'game_state',
+                'state': game_state
+            }
+            self.broadcast(msg)
+        except Exception as e:
+            print(f"Error updating game: {e}")
+            import traceback
+            traceback.print_exc()
     
     def create_game_state(self):
         """Tạo game state để gửi cho clients"""
@@ -300,14 +306,19 @@ class P2PClient:
                 buffer += data
                 while '\n' in buffer:
                     line, buffer = buffer.split('\n', 1)
-                    msg = json.loads(line)
-                    
-                    if msg['type'] == 'room_update':
-                        self.players = {int(k): v for k, v in msg['players'].items()}
-                    elif msg['type'] == 'game_start':
-                        self.game_started = True
-                    elif msg['type'] == 'game_state':
-                        self.game_state = msg['state']
+                    try:
+                        msg = json.loads(line)
+                        
+                        if msg['type'] == 'room_update':
+                            self.players = {int(k): v for k, v in msg['players'].items()}
+                        elif msg['type'] == 'game_start':
+                            self.game_started = True
+                            print("Game started!")
+                        elif msg['type'] == 'game_state':
+                            self.game_state = msg['state']
+                    except json.JSONDecodeError as e:
+                        print(f"JSON decode error: {e}, line: {line}")
+                        continue
                         
         except socket.timeout:
             print("Connection lost: timed out")
@@ -315,6 +326,8 @@ class P2PClient:
             print("Connection lost: connection reset by host")
         except Exception as e:
             print(f"Connection lost: {e}")
+            import traceback
+            traceback.print_exc()
         finally:
             self.connected = False
     
@@ -579,9 +592,9 @@ class P2PGameController:
         if event.type == pygame.KEYDOWN:
             action = None
             
-            if event.key in [pygame.K_SPACE, pygame.K_UP]:
+            if event.key == pygame.K_SPACE:
                 action = 'hit'
-            elif event.key in [pygame.K_DOWN, pygame.K_RETURN]:
+            elif event.key == pygame.K_RETURN:
                 action = 'dodge'
             
             if action:
@@ -625,7 +638,7 @@ class P2PGameController:
             elif self.current_view == "game":
                 if self.mode == 'host' and self.host.game:
                     self.game_renderer.render(self.screen, self.host.game)
-                elif self.mode == 'client' and self.client.game_state:
+                elif self.mode == 'client':
                     self.draw_client_game()
             
             pygame.display.flip()
@@ -645,6 +658,11 @@ class P2PGameController:
         
         state = self.client.game_state
         if not state:
+            # Show loading message
+            font = pygame.font.Font(None, 48)
+            text = font.render("Đang tải game...", True, BLACK)
+            text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+            self.screen.blit(text, text_rect)
             return
         
         # Draw planet
