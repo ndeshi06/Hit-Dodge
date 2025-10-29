@@ -256,7 +256,7 @@ class P2PClient:
         try:
             print(f"Attempting to connect to {host_ip}:{port}...")
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.settimeout(600)  # 10 second timeout
+            self.socket.settimeout(10)  # 10 second timeout
             self.socket.connect((host_ip, port))
             print("Connected!")
             
