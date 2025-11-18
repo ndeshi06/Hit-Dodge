@@ -6,10 +6,18 @@ from config.constants import *
 
 class LobbyRenderer:
     def __init__(self):
-        self.font = pygame.font.Font(None, 48)
-        self.medium_font = pygame.font.Font(None, 36)
-        self.small_font = pygame.font.Font(None, 32)
-        self.tiny_font = pygame.font.Font(None, 24)
+        # Use system font with Vietnamese support
+        try:
+            self.font = pygame.font.SysFont('arial', 48)
+            self.medium_font = pygame.font.SysFont('arial', 36)
+            self.small_font = pygame.font.SysFont('arial', 32)
+            self.tiny_font = pygame.font.SysFont('arial', 24)
+        except:
+            # Fallback to default if arial not found
+            self.font = pygame.font.Font(None, 48)
+            self.medium_font = pygame.font.Font(None, 36)
+            self.small_font = pygame.font.Font(None, 32)
+            self.tiny_font = pygame.font.Font(None, 24)
         self.room_id_input = ""
         self.player_name_input = "Player"
         self.server_ip_input = "localhost"
@@ -112,7 +120,7 @@ class LobbyRenderer:
         pygame.draw.rect(screen, GREEN, create_rect)
         pygame.draw.rect(screen, BLACK, create_rect, 2)
         
-        create_text = self.medium_font.render("🏠 Create New Room", True, WHITE)
+        create_text = self.medium_font.render("Create New Room", True, WHITE)
         create_text_rect = create_text.get_rect(center=create_rect.center)
         screen.blit(create_text, create_text_rect)
         
@@ -121,7 +129,7 @@ class LobbyRenderer:
         pygame.draw.rect(screen, BLUE, join_rect)
         pygame.draw.rect(screen, BLACK, join_rect, 2)
         
-        join_text = self.medium_font.render("🚪 Join Existing Room", True, WHITE)
+        join_text = self.medium_font.render("Join Existing Room", True, WHITE)
         join_text_rect = join_text.get_rect(center=join_rect.center)
         screen.blit(join_text, join_text_rect)
         
@@ -162,9 +170,16 @@ class LobbyRenderer:
 
 class WaitingRoomRenderer:
     def __init__(self):
-        self.font = pygame.font.Font(None, 48)
-        self.small_font = pygame.font.Font(None, 32)
-        self.tiny_font = pygame.font.Font(None, 24)
+        # Use system font with Vietnamese support
+        try:
+            self.font = pygame.font.SysFont('arial', 48)
+            self.small_font = pygame.font.SysFont('arial', 32)
+            self.tiny_font = pygame.font.SysFont('arial', 24)
+        except:
+            # Fallback to default if arial not found
+            self.font = pygame.font.Font(None, 48)
+            self.small_font = pygame.font.Font(None, 32)
+            self.tiny_font = pygame.font.Font(None, 24)
         
     def render(self, screen, room_id, players_count, max_players=4, player_names=None):
         screen.fill(WHITE)

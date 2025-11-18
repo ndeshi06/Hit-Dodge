@@ -8,8 +8,14 @@ from models.player_state import PlayerState
 
 class GameRenderer:
     def __init__(self):
-        self.font = pygame.font.Font(None, 48)
-        self.small_font = pygame.font.Font(None, 24)
+        # Use system font with Vietnamese support
+        try:
+            self.font = pygame.font.SysFont('arial', 48)
+            self.small_font = pygame.font.SysFont('arial', 24)
+        except:
+            # Fallback to default if arial not found
+            self.font = pygame.font.Font(None, 48)
+            self.small_font = pygame.font.Font(None, 24)
     
     def draw_planet(self, screen):
         """Draw the planet"""
@@ -131,7 +137,6 @@ class GameRenderer:
         self.draw_online_ui(screen, game_state, my_player_id)
     
     def draw_network_player(self, screen, player_data, my_player_id):
-        """Draw a player from network data"""
         player_id = player_data.get('id', 0)
         x = player_data.get('x', 0)
         y = player_data.get('y', 0)

@@ -1,14 +1,14 @@
 """
-Hit & Dodge Game - Local 4-Player Multiplayer
-4 người chơi trên cùng 1 máy tính với các phím điều khiển riêng biệt
+"""Hit & Dodge Game - Local 4-Player Multiplayer
+4 players on the same computer with separate control keys
 
-Điều khiển:
-- Người chơi 1 (Đỏ):        Q (Hit),  A (Dodge)
-- Người chơi 2 (Xanh lá):   W (Hit),  S (Dodge)  
-- Người chơi 3 (Xanh dương): O (Hit),  L (Dodge)
-- Người chơi 4 (Vàng):      P (Hit),  ; (Dodge)
+Controls:
+- Player 1 (Red):    Q (Hit),  A (Dodge)
+- Player 2 (Green):  W (Hit),  S (Dodge)  
+- Player 3 (Blue):   O (Hit),  L (Dodge)
+- Player 4 (Yellow): P (Hit),  ; (Dodge)
 
-Nhấn SPACE để chơi lại sau khi game kết thúc
+Press SPACE to restart after game over
 """
 import pygame
 import sys
@@ -23,7 +23,7 @@ class LocalMultiplayerController:
         
         # Create screen
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-        pygame.display.set_caption("Hit & Dodge - 4 Người Chơi Cùng Máy")
+        pygame.display.set_caption("Hit & Dodge - 4 Players Local")
         self.clock = pygame.time.Clock()
         
         # Create game components
@@ -92,13 +92,13 @@ class LocalMultiplayerController:
         
         # Subtitle
         font_subtitle = pygame.font.Font(None, 32)
-        subtitle_text = font_subtitle.render("4 Người Chơi - Cùng Máy", True, YELLOW)
+        subtitle_text = font_subtitle.render("4 Players - Local Play", True, YELLOW)
         subtitle_rect = subtitle_text.get_rect(center=(SCREEN_WIDTH // 2, 130))
         self.screen.blit(subtitle_text, subtitle_rect)
         
         # Controls header
         font_header = pygame.font.Font(None, 40)
-        controls_header = font_header.render("ĐIỀU KHIỂN", True, WHITE)
+        controls_header = font_header.render("CONTROLS", True, WHITE)
         controls_rect = controls_header.get_rect(center=(SCREEN_WIDTH // 2, 180))
         self.screen.blit(controls_header, controls_rect)
         
@@ -108,10 +108,10 @@ class LocalMultiplayerController:
         spacing = 60
         
         controls = [
-            ("Người chơi 1 (Đỏ):", "Q = Hit  |  A = Dodge", RED),
-            ("Người chơi 2 (Xanh lá):", "W = Hit  |  S = Dodge", GREEN),
-            ("Người chơi 3 (Xanh dương):", "O = Hit  |  L = Dodge", BLUE),
-            ("Người chơi 4 (Vàng):", "P = Hit  |  ; = Dodge", YELLOW),
+            ("Player 1 (Red):", "Q = Hit  |  A = Dodge", RED),
+            ("Player 2 (Green):", "W = Hit  |  S = Dodge", GREEN),
+            ("Player 3 (Blue):", "O = Hit  |  L = Dodge", BLUE),
+            ("Player 4 (Yellow):", "P = Hit  |  ; = Dodge", YELLOW),
         ]
         
         for player_name, keys, color in controls:
@@ -130,9 +130,9 @@ class LocalMultiplayerController:
         # Instructions
         font_instructions = pygame.font.Font(None, 24)
         instructions = [
-            "Nhấn phím bất kỳ để bắt đầu",
-            "SPACE = Chơi lại khi game kết thúc",
-            "ESC = Thoát game"
+            "Press any key to start",
+            "SPACE = Restart when game over",
+            "ESC = Quit game"
         ]
         
         y_offset = 520
