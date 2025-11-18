@@ -8,6 +8,8 @@ class Player:
         self.angle = angle
         self.color = color
         self.state = PlayerState.STANDING
+        self.lives = 4
+        self.invincible_timer = 0
         self.dodge_timer = 0
         self.swing_timer = 0
         self.hit_cooldown = 0
@@ -21,9 +23,6 @@ class Player:
         self.update_position()
         
     def update_position(self):
-        if self.state == PlayerState.FLYING_OFF:
-            return
-        
         if self.state == PlayerState.DODGING:
             self.x = PLANET_CENTER[0] + (PLANET_RADIUS - PLAYER_RADIUS//2) * math.cos(self.angle)
             self.y = PLANET_CENTER[1] + (PLANET_RADIUS - PLAYER_RADIUS//2) * math.sin(self.angle)
@@ -100,22 +99,17 @@ class Player:
             print(f"  Cannot hit: wrong state or cooldown")
         return False
     
-    def eliminate(self, ball_x, ball_y):
-        dx = self.x - ball_x
-        dy = self.y - ball_y
-        distance = math.sqrt(dx*dx + dy*dy)
-        if distance > 0:
-            dx /= distance
-            dy /= distance
-        
-        speed = 300
-        self.fly_velocity_x = dx * speed
-        self.fly_velocity_y = dy * speed - 150
-        self.state = PlayerState.FLYING_OFF
+    def take_damage(self):
+        self.lives -= 1
+        self.invincible_timer = 3.0
+        print(f"Player {self.id + 1} took damage! Lives remaining: {self.lives}, invincible for 3 seconds")
     
     def update(self, dt):
         if self.hit_cooldown > 0:
             self.hit_cooldown -= dt
+        
+        if self.invincible_timer > 0:
+            self.invincible_timer -= dt
         
         if self.state == PlayerState.DODGING:
             self.dodge_timer -= dt
@@ -135,12 +129,3 @@ class Player:
                 self.stick_angle = 0
                 self.swing_target_angle = 0
                 self.swing_progress = 0
-        
-        elif self.state == PlayerState.FLYING_OFF:
-            self.x += self.fly_velocity_x * dt
-            self.y += self.fly_velocity_y * dt
-            self.fly_velocity_y += 400 * dt
-            
-            if (self.x < -100 or self.x > SCREEN_WIDTH + 100 or 
-                self.y > SCREEN_HEIGHT + 100):
-                self.state = PlayerState.ELIMINATED

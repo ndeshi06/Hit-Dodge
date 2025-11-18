@@ -27,15 +27,48 @@ class GameRenderer:
         pygame.draw.circle(screen, DARK_GRAY, PLANET_CENTER, PLANET_RADIUS, 3)
     
     def draw_player(self, screen, player):
-        if player.state == PlayerState.ELIMINATED:
+        if player.lives <= 0:
             return
+        
+        name_font = pygame.font.SysFont('arial', 16)
+        player_name = f'Player {player.id + 1}'
+        name_text = name_font.render(player_name, True, BLACK)
+        name_rect = name_text.get_rect(center=(int(player.x), int(player.y - 55)))
+        screen.blit(name_text, name_rect)
+        
+        heart_size = 12
+        heart_spacing = 15
+        total_hearts_width = 4 * heart_spacing - heart_spacing + heart_size
+        hearts_start_x = player.x - total_hearts_width / 2
+        hearts_y = player.y - 40
+        
+        for i in range(4):
+            heart_x = hearts_start_x + i * heart_spacing
+            if i < player.lives:
+                pygame.draw.polygon(screen, (255, 0, 0), [
+                    (heart_x, hearts_y + 3),
+                    (heart_x - 5, hearts_y - 3),
+                    (heart_x, hearts_y - 6),
+                    (heart_x + 5, hearts_y - 3)
+                ])
+                pygame.draw.circle(screen, (255, 0, 0), (int(heart_x - 3), int(hearts_y - 3)), 4)
+                pygame.draw.circle(screen, (255, 0, 0), (int(heart_x + 3), int(hearts_y - 3)), 4)
+            else:
+                pygame.draw.polygon(screen, (100, 100, 100), [
+                    (heart_x, hearts_y + 3),
+                    (heart_x - 5, hearts_y - 3),
+                    (heart_x, hearts_y - 6),
+                    (heart_x + 5, hearts_y - 3)
+                ])
+                pygame.draw.circle(screen, (100, 100, 100), (int(heart_x - 3), int(hearts_y - 3)), 4)
+                pygame.draw.circle(screen, (100, 100, 100), (int(heart_x + 3), int(hearts_y - 3)), 4)
             
         if player.state == PlayerState.DODGING:
             pygame.draw.circle(screen, player.color, (int(player.x), int(player.y)), PLAYER_RADIUS // 2)
         else:
             pygame.draw.circle(screen, player.color, (int(player.x), int(player.y)), PLAYER_RADIUS)
             
-            if player.state in [PlayerState.STANDING, PlayerState.SWINGING, PlayerState.FLYING_OFF]:
+            if player.state in [PlayerState.STANDING, PlayerState.SWINGING]:
                 stick_length = 35
                 
                 if player.id == 0:
@@ -54,6 +87,13 @@ class GameRenderer:
                 stick_end_y = player.y + stick_length * math.sin(stick_angle)
                 pygame.draw.line(screen, BLACK, (int(player.x), int(player.y)), 
                                (int(stick_end_x), int(stick_end_y)), 4)
+        
+        if player.invincible_timer > 0:
+            shield_alpha = int((abs(math.sin(pygame.time.get_ticks() * 0.01)) * 100) + 50)
+            shield_surface = pygame.Surface((PLAYER_RADIUS * 3, PLAYER_RADIUS * 3), pygame.SRCALPHA)
+            pygame.draw.circle(shield_surface, (100, 200, 255, shield_alpha), 
+                             (PLAYER_RADIUS * 1.5, PLAYER_RADIUS * 1.5), PLAYER_RADIUS + 10, 3)
+            screen.blit(shield_surface, (int(player.x - PLAYER_RADIUS * 1.5), int(player.y - PLAYER_RADIUS * 1.5)))
         
         if player.state == PlayerState.STANDING:
             if player.hit_cooldown <= 0:
@@ -119,7 +159,7 @@ class GameRenderer:
         ball_data = game_state.get('ball', {})
         self.draw_network_ball(screen, ball_data, rotation_angle)
         
-        self.draw_online_ui(screen, game_state, my_player_id)
+        return self.draw_online_ui(screen, game_state, my_player_id)
     
     def draw_network_player(self, screen, player_data, my_player_id, rotation_angle=0):
         player_id = player_data.get('id', 0)
@@ -128,8 +168,9 @@ class GameRenderer:
         state = player_data.get('state', 1)
         stick_angle = player_data.get('stick_angle', 0)
         color = tuple(player_data.get('color', [255, 255, 255]))
+        lives = player_data.get('lives', 4)
         
-        if state == 4:
+        if lives <= 0:
             return
         
         x_rot, y_rot = self.rotate_point(x, y, rotation_angle)
@@ -159,24 +200,41 @@ class GameRenderer:
                 pygame.draw.line(screen, BLACK, (int(x_rot), int(y_rot)), 
                                (int(stick_end_x), int(stick_end_y)), 4)
         
+        invincible_timer = player_data.get('invincible_timer', 0)
+        if invincible_timer > 0:
+            shield_alpha = int((abs(math.sin(pygame.time.get_ticks() * 0.01)) * 100) + 50)
+            shield_surface = pygame.Surface((PLAYER_RADIUS * 3, PLAYER_RADIUS * 3), pygame.SRCALPHA)
+            pygame.draw.circle(shield_surface, (100, 200, 255, shield_alpha), 
+                             (PLAYER_RADIUS * 1.5, PLAYER_RADIUS * 1.5), PLAYER_RADIUS + 10, 3)
+            screen.blit(shield_surface, (int(x_rot - PLAYER_RADIUS * 1.5), int(y_rot - PLAYER_RADIUS * 1.5)))
+        
         if player_id == my_player_id:
             pygame.draw.circle(screen, WHITE, (int(x_rot), int(y_rot)), PLAYER_RADIUS + 5, 3)
         
         player_name = player_data.get('name', f'Player {player_id + 1}')
         
-        original_angle = ((player_id + 2) % 4) * math.pi / 2
+        original_angle = player_id * math.pi / 2
         rotated_name_angle = original_angle + rotation_angle
         
         name_distance = PLAYER_RADIUS + 45
         name_x = x_rot + name_distance * math.cos(rotated_name_angle)
         name_y = y_rot + name_distance * math.sin(rotated_name_angle)
         
-        if player_id == 1 or player_id == 3:
-            name_text = self.small_font.render(player_name, True, BLACK)
-            angle_deg = -90 if player_id == 0 else 90
-            name_text = pygame.transform.rotate(name_text, angle_deg)
+        final_angle_normalized = rotated_name_angle % (2 * math.pi)
+        angle_deg_from_right = math.degrees(final_angle_normalized)
+        
+        if 45 <= angle_deg_from_right < 135:
+            text_rotation = 180
+        elif 135 <= angle_deg_from_right < 225:
+            text_rotation = 90
+        elif 225 <= angle_deg_from_right < 315:
+            text_rotation = 0
         else:
-            name_text = self.small_font.render(player_name, True, BLACK)
+            text_rotation = -90
+        
+        name_text = self.small_font.render(player_name, True, BLACK)
+        if text_rotation != 0:
+            name_text = pygame.transform.rotate(name_text, text_rotation)
         
         name_rect = name_text.get_rect(center=(int(name_x), int(name_y)))
         
@@ -185,6 +243,50 @@ class GameRenderer:
         bg_surface.fill((*color, 180))
         screen.blit(bg_surface, bg_rect.topleft)
         screen.blit(name_text, name_rect)
+        
+        lives = player_data.get('lives', 4)
+        heart_size = 12
+        heart_spacing = 15
+        total_hearts_width = 4 * heart_spacing - heart_spacing + heart_size
+        
+        hearts_distance = name_distance - 15
+        hearts_center_x = x_rot + hearts_distance * math.cos(rotated_name_angle)
+        hearts_center_y = y_rot + hearts_distance * math.sin(rotated_name_angle)
+        
+        for i in range(4):
+            offset_x = (i - 1.5) * heart_spacing
+            
+            if 45 <= angle_deg_from_right < 135:
+                heart_x = hearts_center_x - offset_x
+                heart_y = hearts_center_y
+            elif 135 <= angle_deg_from_right < 225:
+                heart_x = hearts_center_x
+                heart_y = hearts_center_y - offset_x
+            elif 225 <= angle_deg_from_right < 315:
+                heart_x = hearts_center_x + offset_x
+                heart_y = hearts_center_y
+            else:
+                heart_x = hearts_center_x
+                heart_y = hearts_center_y + offset_x
+            
+            if i < lives:
+                pygame.draw.polygon(screen, (255, 0, 0), [
+                    (heart_x, heart_y + 3),
+                    (heart_x - 5, heart_y - 3),
+                    (heart_x, heart_y - 6),
+                    (heart_x + 5, heart_y - 3)
+                ])
+                pygame.draw.circle(screen, (255, 0, 0), (int(heart_x - 3), int(heart_y - 3)), 4)
+                pygame.draw.circle(screen, (255, 0, 0), (int(heart_x + 3), int(heart_y - 3)), 4)
+            else:
+                pygame.draw.polygon(screen, (100, 100, 100), [
+                    (heart_x, heart_y + 3),
+                    (heart_x - 5, heart_y - 3),
+                    (heart_x, heart_y - 6),
+                    (heart_x + 5, heart_y - 3)
+                ])
+                pygame.draw.circle(screen, (100, 100, 100), (int(heart_x - 3), int(heart_y - 3)), 4)
+                pygame.draw.circle(screen, (100, 100, 100), (int(heart_x + 3), int(heart_y - 3)), 4)
     
     def draw_network_ball(self, screen, ball_data, rotation_angle=0):
         x = ball_data.get('x', 0)
@@ -206,12 +308,12 @@ class GameRenderer:
         else:
             pygame.draw.circle(screen, BLACK, (int(x_rot), int(y_rot)), BALL_RADIUS)
     
-    def draw_online_ui(self, screen, game_state, my_player_id):
-        controls_text = "Your controls: SPACE/UP = Hit, DOWN/ENTER = Dodge"
-        text = self.small_font.render(controls_text, True, BLACK)
-        screen.blit(text, (10, SCREEN_HEIGHT - 30))
-        
-        if game_state.get('game_over', False):
+    def draw_online_ui(self, screen, game_state, my_player_id, ready_clicked=False):
+        if not game_state.get('game_over', False):
+            controls_text = "Your controls: SPACE/UP = Hit, DOWN/ENTER = Dodge"
+            text = self.small_font.render(controls_text, True, BLACK)
+            screen.blit(text, (10, SCREEN_HEIGHT - 30))
+        else:
             winner_id = game_state.get('winner_id')
             if winner_id is not None:
                 if winner_id == my_player_id:
@@ -220,8 +322,24 @@ class GameRenderer:
                     text = self.font.render(f"Player {winner_id + 1} Wins!", True, RED)
             else:
                 text = self.font.render("Game Over!", True, BLACK)
-            text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, 50))
+            text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, 100))
             screen.blit(text, text_rect)
+            
+
+            
+            back_button = pygame.Rect(SCREEN_WIDTH // 2 - 100, 220, 200, 60)
+            
+            pygame.draw.rect(screen, RED, back_button)
+            pygame.draw.rect(screen, BLACK, back_button, 3)
+            
+            back_text = self.small_font.render("BACK TO MENU", True, WHITE)
+            
+            screen.blit(back_text, (back_button.centerx - back_text.get_width() // 2,
+                                   back_button.centery - back_text.get_height() // 2))
+            
+            return None, back_button
+        
+        return None, None
     
     def render(self, screen, game):
         screen.fill(WHITE)

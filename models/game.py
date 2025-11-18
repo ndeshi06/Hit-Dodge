@@ -23,23 +23,24 @@ class Game:
         ball_pos = self.ball.get_position()
         
         for player in self.players:
-            if player.state in [PlayerState.ELIMINATED, PlayerState.DODGING, PlayerState.FLYING_OFF]:
+            if player.lives <= 0 or player.state == PlayerState.DODGING or player.invincible_timer > 0:
                 continue
                 
             distance = math.sqrt((ball_pos[0] - player.x)**2 + (ball_pos[1] - player.y)**2)
             
             if distance < BALL_RADIUS + PLAYER_RADIUS:
-                player.eliminate(ball_pos[0], ball_pos[1])
+                player.take_damage()
                 self.ball.reset_speed()
-                print(f"Player {player.id + 1} eliminated!")
                 break
     
     def check_game_over(self):
-        active_players = [p for p in self.players if p.state != PlayerState.ELIMINATED]
+        active_players = [p for p in self.players if p.lives > 0]
+        print(f"Active players: {len(active_players)}, Lives: {[p.lives for p in self.players]}")
         if len(active_players) <= 1:
             self.game_over = True
             if len(active_players) == 1:
                 self.winner = active_players[0]
+                print(f"Game over! Winner: Player {self.winner.id + 1}")
     
     def update(self, dt):
         if not self.game_over:

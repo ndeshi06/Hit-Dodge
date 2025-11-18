@@ -17,11 +17,23 @@ class P2PHost:
         self.players = {0: player_name}
         self.client_sockets = {}
         self.server_socket = None
+        self.broadcast_socket = None
         self.running = False
         self.game = None
         self.game_started = False
         self.player_actions = {}
         self.action_lock = threading.Lock()
+        self.local_ip = self.get_local_ip()
+    
+    def get_local_ip(self):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            s.close()
+            return local_ip
+        except:
+            return "127.0.0.1"
         
     def start(self, port=12345):
         try:
@@ -33,6 +45,8 @@ class P2PHost:
             
             print(f"Host started on port {port}")
             
+            self.start_broadcast()
+            
             accept_thread = threading.Thread(target=self.accept_connections)
             accept_thread.daemon = True
             accept_thread.start()
@@ -41,6 +55,36 @@ class P2PHost:
         except Exception as e:
             print(f"Failed to start host: {e}")
             return False, None
+    
+    def start_broadcast(self):
+        try:
+            self.broadcast_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.broadcast_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            
+            broadcast_thread = threading.Thread(target=self.broadcast_room_info)
+            broadcast_thread.daemon = True
+            broadcast_thread.start()
+        except Exception as e:
+            print(f"Failed to start broadcast: {e}")
+    
+    def broadcast_room_info(self):
+        broadcast_port = 12346
+        while self.running and not self.game_started:
+            try:
+                room_info = {
+                    'type': 'room_broadcast',
+                    'room_code': self.room_code,
+                    'host_name': self.player_name,
+                    'host_ip': self.local_ip,
+                    'players_count': len(self.players),
+                    'max_players': 4
+                }
+                message = json.dumps(room_info).encode()
+                self.broadcast_socket.sendto(message, ('<broadcast>', broadcast_port))
+                time.sleep(2)
+            except Exception as e:
+                print(f"Broadcast error: {e}")
+                break
     
     def accept_connections(self):
         while self.running and len(self.players) < 4:
@@ -99,6 +143,8 @@ class P2PHost:
                         with self.action_lock:
                             self.player_actions[player_id] = msg['action']
                         print(f"Received action from player {player_id}: {msg['action']}")
+                    elif msg['type'] == 'back_to_menu':
+                        print(f"Player {player_id} wants to return to menu")
                         
         except Exception as e:
             print(f"Client {player_id} disconnected: {e}")
@@ -179,7 +225,9 @@ class P2PHost:
                 'color': player.color,
                 'stick_angle': player.stick_angle,
                 'swing_progress': player.swing_progress,
-                'hit_cooldown': player.hit_cooldown
+                'hit_cooldown': player.hit_cooldown,
+                'lives': player.lives,
+                'invincible_timer': player.invincible_timer
             })
         
         ball_data = {
@@ -211,6 +259,8 @@ class P2PHost:
         self.running = False
         if self.server_socket:
             self.server_socket.close()
+        if self.broadcast_socket:
+            self.broadcast_socket.close()
         for socket in self.client_sockets.values():
             socket.close()
 
@@ -322,6 +372,14 @@ class P2PClient:
             except:
                 self.connected = False
     
+    def send_back_to_menu(self):
+        if self.connected:
+            msg = {'type': 'back_to_menu'}
+            try:
+                self.socket.send((json.dumps(msg) + '\n').encode())
+            except:
+                self.connected = False
+    
     def disconnect(self):
         self.connected = False
         if self.socket:
@@ -350,8 +408,54 @@ class P2PGameController:
         
         self.input_active = None
         
+        self.available_rooms = {}
+        self.scanning = False
+        self.scan_socket = None
+        self.start_room_scanner()
+        
+        self.game_buttons = (None, None)
+        
     def generate_room_code(self):
         return ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+    
+    def start_room_scanner(self):
+        try:
+            self.scan_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.scan_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.scan_socket.bind(('', 12346))
+            self.scanning = True
+            
+            scan_thread = threading.Thread(target=self.scan_for_rooms)
+            scan_thread.daemon = True
+            scan_thread.start()
+        except Exception as e:
+            print(f"Failed to start room scanner: {e}")
+    
+    def scan_for_rooms(self):
+        while self.scanning and self.running:
+            try:
+                self.scan_socket.settimeout(1.0)
+                data, addr = self.scan_socket.recvfrom(1024)
+                room_info = json.loads(data.decode())
+                
+                if room_info['type'] == 'room_broadcast':
+                    room_id = f"{room_info['host_ip']}:{room_info['room_code']}"
+                    self.available_rooms[room_id] = {
+                        'room_code': room_info['room_code'],
+                        'host_name': room_info['host_name'],
+                        'host_ip': room_info['host_ip'],
+                        'players_count': room_info['players_count'],
+                        'max_players': room_info['max_players'],
+                        'last_seen': time.time()
+                    }
+            except socket.timeout:
+                current_time = time.time()
+                expired_rooms = [rid for rid, info in self.available_rooms.items() 
+                               if current_time - info['last_seen'] > 5]
+                for rid in expired_rooms:
+                    del self.available_rooms[rid]
+            except Exception as e:
+                pass
     
     def draw_menu(self):
         self.screen.fill(WHITE)
@@ -359,57 +463,57 @@ class P2PGameController:
         font_title = pygame.font.Font(None, 64)
         font_normal = pygame.font.Font(None, 32)
         font_small = pygame.font.Font(None, 24)
+        font_tiny = pygame.font.Font(None, 20)
         
         title = font_title.render("HIT & DODGE - P2P", True, BLACK)
-        self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 50))
+        self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 30))
         
         name_label = font_normal.render("Your name:", True, BLACK)
-        self.screen.blit(name_label, (100, 150))
+        self.screen.blit(name_label, (50, 100))
         
-        name_box = pygame.Rect(100, 190, 600, 40)
+        name_box = pygame.Rect(50, 140, 300, 40)
         pygame.draw.rect(self.screen, BLUE if self.input_active == 'name' else GRAY, name_box, 2)
         name_text = font_normal.render(self.player_name, True, BLACK)
-        self.screen.blit(name_text, (110, 195))
+        self.screen.blit(name_text, (60, 145))
         
-        host_button = pygame.Rect(100, 270, 280, 60)
+        host_button = pygame.Rect(50, 200, 300, 50)
         pygame.draw.rect(self.screen, GREEN, host_button)
-        host_text = font_normal.render("CREATE ROOM (HOST)", True, WHITE)
-        self.screen.blit(host_text, (host_button.x + 20, host_button.y + 15))
+        host_text = font_normal.render("CREATE NEW ROOM", True, WHITE)
+        self.screen.blit(host_text, (host_button.x + 30, host_button.y + 12))
         
-        join_label = font_normal.render("Or join a room:", True, BLACK)
-        self.screen.blit(join_label, (420, 270))
+        rooms_label = font_normal.render("Available Rooms:", True, BLACK)
+        self.screen.blit(rooms_label, (400, 100))
         
-        ip_label = font_small.render("Host IP:", True, BLACK)
-        self.screen.blit(ip_label, (420, 310))
-        
-        ip_box = pygame.Rect(420, 340, 280, 35)
-        pygame.draw.rect(self.screen, BLUE if self.input_active == 'ip' else GRAY, ip_box, 2)
-        ip_text = font_small.render(self.host_ip, True, BLACK)
-        self.screen.blit(ip_text, (430, 345))
-        
-        code_label = font_small.render("Room code:", True, BLACK)
-        self.screen.blit(code_label, (420, 390))
-        
-        code_box = pygame.Rect(420, 420, 280, 35)
-        pygame.draw.rect(self.screen, BLUE if self.input_active == 'code' else GRAY, code_box, 2)
-        code_text = font_small.render(self.room_code or "", True, BLACK)
-        self.screen.blit(code_text, (430, 425))
-        
-        join_button = pygame.Rect(420, 475, 280, 50)
-        pygame.draw.rect(self.screen, BLUE, join_button)
-        join_text = font_normal.render("JOIN", True, WHITE)
-        self.screen.blit(join_text, (join_button.x + 90, join_button.y + 10))
+        if not self.available_rooms:
+            no_rooms = font_small.render("Scanning for rooms...", True, GRAY)
+            self.screen.blit(no_rooms, (400, 140))
+        else:
+            y_offset = 140
+            self.room_buttons = {}
+            for room_id, room_info in list(self.available_rooms.items())[:8]:
+                room_button = pygame.Rect(400, y_offset, 550, 50)
+                pygame.draw.rect(self.screen, BLUE, room_button)
+                pygame.draw.rect(self.screen, BLACK, room_button, 2)
+                
+                room_text = f"{room_info['host_name']}'s Room - {room_info['room_code']}"
+                players_text = f"({room_info['players_count']}/{room_info['max_players']})"
+                
+                text1 = font_small.render(room_text, True, WHITE)
+                text2 = font_small.render(players_text, True, YELLOW)
+                
+                self.screen.blit(text1, (room_button.x + 10, room_button.y + 8))
+                self.screen.blit(text2, (room_button.x + room_button.width - 60, room_button.y + 8))
+                
+                self.room_buttons[room_id] = room_button
+                y_offset += 60
         
         self.host_button_rect = host_button
-        self.join_button_rect = join_button
         self.name_box_rect = name_box
-        self.ip_box_rect = ip_box
-        self.code_box_rect = code_box
         
         if self.error_message:
             error_font = pygame.font.Font(None, 24)
             error_text = error_font.render(self.error_message, True, RED)
-            self.screen.blit(error_text, (SCREEN_WIDTH // 2 - error_text.get_width() // 2, 550))
+            self.screen.blit(error_text, (SCREEN_WIDTH // 2 - error_text.get_width() // 2, SCREEN_HEIGHT - 50))
         
     def get_local_ip(self):
         try:
@@ -477,16 +581,18 @@ class P2PGameController:
         if event.type == pygame.MOUSEBUTTONDOWN:
             if self.name_box_rect.collidepoint(event.pos):
                 self.input_active = 'name'
-            elif self.ip_box_rect.collidepoint(event.pos):
-                self.input_active = 'ip'
-            elif self.code_box_rect.collidepoint(event.pos):
-                self.input_active = 'code'
             elif self.host_button_rect.collidepoint(event.pos):
                 self.create_host()
-            elif self.join_button_rect.collidepoint(event.pos):
-                self.join_room()
             else:
-                self.input_active = None
+                clicked_room = False
+                for room_id, room_rect in getattr(self, 'room_buttons', {}).items():
+                    if room_rect.collidepoint(event.pos):
+                        self.join_room_by_id(room_id)
+                        clicked_room = True
+                        break
+                
+                if not clicked_room:
+                    self.input_active = None
                 
         elif event.type == pygame.KEYDOWN:
             if self.input_active == 'name':
@@ -496,27 +602,10 @@ class P2PGameController:
                     self.input_active = None
                 elif len(self.player_name) < 20:
                     self.player_name += event.unicode
-                    
-            elif self.input_active == 'ip':
-                if event.key == pygame.K_BACKSPACE:
-                    self.host_ip = self.host_ip[:-1]
-                elif event.key == pygame.K_RETURN:
-                    self.input_active = None
-                elif len(self.host_ip) < 15:
-                    self.host_ip += event.unicode
-                    
-            elif self.input_active == 'code':
-                if event.key == pygame.K_BACKSPACE:
-                    self.room_code = self.room_code[:-1] if self.room_code else ""
-                elif event.key == pygame.K_RETURN:
-                    self.input_active = None
-                elif self.room_code and len(self.room_code) < 4:
-                    self.room_code += event.unicode.upper()
-                elif not self.room_code:
-                    self.room_code = event.unicode.upper()
     
     def create_host(self):
         if not self.player_name:
+            self.error_message = "Please enter your name!"
             return
         
         self.room_code = self.generate_room_code()
@@ -526,6 +615,32 @@ class P2PGameController:
         
         if success:
             self.current_view = "waiting"
+    
+    def join_room_by_id(self, room_id):
+        if not self.player_name:
+            self.error_message = "Please enter your name!"
+            return
+        
+        if room_id not in self.available_rooms:
+            self.error_message = "Room no longer available!"
+            return
+        
+        room_info = self.available_rooms[room_id]
+        self.host_ip = room_info['host_ip']
+        self.room_code = room_info['room_code']
+        
+        self.error_message = "Connecting..."
+        self.mode = 'client'
+        self.client = P2PClient()
+        success, player_id = self.client.connect(self.host_ip, 12345, self.room_code, self.player_name)
+        
+        if success:
+            self.current_view = "waiting"
+            self.error_message = None
+        else:
+            self.error_message = "Cannot connect! Room may be full or closed."
+            self.mode = None
+            self.client = None
     
     def join_room(self):
         if not self.player_name or not self.host_ip or not self.room_code:
@@ -546,7 +661,27 @@ class P2PGameController:
             self.client = None
     
     def handle_game_input(self, event):
-        if event.type == pygame.KEYDOWN:
+        game_state = None
+        if self.mode == 'host' and self.host.game:
+            game_state = self.host.create_game_state()
+        elif self.mode == 'client':
+            game_state = self.client.game_state
+        
+        is_game_over = game_state and game_state.get('game_over', False)
+        
+        if event.type == pygame.MOUSEBUTTONDOWN and is_game_over:
+            back_btn = self.game_buttons[1]
+            if back_btn and back_btn.collidepoint(event.pos):
+                if self.mode == 'client':
+                    self.client.send_back_to_menu()
+                    self.client.disconnect()
+                elif self.mode == 'host':
+                    self.host.stop()
+                self.current_view = "menu"
+                self.mode = None
+                return
+        
+        if event.type == pygame.KEYDOWN and not is_game_over:
             action = None
             
             if event.key == pygame.K_SPACE:
@@ -596,7 +731,7 @@ class P2PGameController:
             elif self.current_view == "game":
                 if self.mode == 'host' and self.host.game:
                     game_state = self.host.create_game_state()
-                    self.game_renderer.render_online_game(self.screen, game_state, 0)
+                    self.game_buttons = self.game_renderer.render_online_game(self.screen, game_state, 0)
                 elif self.mode == 'client':
                     self.draw_client_game()
             
@@ -606,6 +741,10 @@ class P2PGameController:
             self.host.stop()
         if self.client:
             self.client.disconnect()
+        
+        self.scanning = False
+        if self.scan_socket:
+            self.scan_socket.close()
         
         pygame.quit()
         sys.exit()
@@ -620,7 +759,7 @@ class P2PGameController:
             self.screen.blit(text, text_rect)
             return
         
-        self.game_renderer.render_online_game(self.screen, state, self.client.player_id)
+        self.game_buttons = self.game_renderer.render_online_game(self.screen, state, self.client.player_id)
 
 
 def main():
