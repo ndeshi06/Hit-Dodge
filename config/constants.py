@@ -1,13 +1,8 @@
-"""
-Game constants and configuration
-"""
 
-# Screen settings
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
+SCREEN_WIDTH = 1000
+SCREEN_HEIGHT = 700
 FPS = 60
 
-# Colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 BLUE = (0, 100, 255)
@@ -18,20 +13,17 @@ PURPLE = (255, 0, 255)
 GRAY = (128, 128, 128)
 DARK_GRAY = (64, 64, 64)
 
-# Planet settings
 PLANET_CENTER = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
 PLANET_RADIUS = 200
 
-# Player settings
-PLAYER_RADIUS = 25  # Made larger so ball can hit them easier
+PLAYER_RADIUS = 25
 PLAYER_COLORS = [RED, GREEN, BLUE, YELLOW]
-HIT_RANGE = 60  # pixels - how close ball must be to hit (adjusted for larger players)
-SWING_DURATION = 0.3  # seconds - how long swing animation lasts
-HIT_COOLDOWN = 0.5  # seconds - cooldown between hits to prevent spam
+HIT_RANGE = 60
+SWING_DURATION = 0.3
+HIT_COOLDOWN = 0.5
 
-# Ball settings
-BALL_RADIUS = 10  # Made slightly bigger
-BALL_SPEED = 100  # pixels per second
-BALL_ACCELERATION = 1.2  # speed multiplier when hit
-INITIAL_BALL_SPEED = 100  # reset speed when player eliminated
-BALL_SPAWN_DELAY = 3.0  # seconds to wait before ball starts moving
+BALL_RADIUS = 10
+BALL_SPEED = 100
+BALL_ACCELERATION = 1.2
+INITIAL_BALL_SPEED = 100
+BALL_SPAWN_DELAY = 3.0

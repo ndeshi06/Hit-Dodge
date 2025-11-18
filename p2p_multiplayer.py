@@ -14,27 +14,25 @@ class P2PHost:
     def __init__(self, room_code, player_name):
         self.room_code = room_code
         self.player_name = player_name
-        self.players = {0: player_name}  # player_id -> name
-        self.client_sockets = {}  # player_id -> socket
+        self.players = {0: player_name}
+        self.client_sockets = {}
         self.server_socket = None
         self.running = False
         self.game = None
         self.game_started = False
-        self.player_actions = {}  # player_id -> latest action
-        self.action_lock = threading.Lock()  # Lock for thread-safe access
+        self.player_actions = {}
+        self.action_lock = threading.Lock()
         
     def start(self, port=12345):
         try:
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            # Bind to all interfaces (0.0.0.0) to accept connections from LAN
             self.server_socket.bind(('0.0.0.0', port))
-            self.server_socket.listen(3)  # Chấp nhận tối đa 3 người join (host + 3 = 4)
+            self.server_socket.listen(3)
             self.running = True
             
             print(f"Host started on port {port}")
             
-            # Thread để chấp nhận kết nối
             accept_thread = threading.Thread(target=self.accept_connections)
             accept_thread.daemon = True
             accept_thread.start()
@@ -50,7 +48,6 @@ class P2PHost:
                 self.server_socket.settimeout(1.0)
                 client_socket, addr = self.server_socket.accept()
                 
-                # Nhận tên người chơi
                 data = client_socket.recv(1024).decode()
                 msg = json.loads(data)
                 
@@ -61,7 +58,6 @@ class P2PHost:
                     self.players[player_id] = player_name
                     self.client_sockets[player_id] = client_socket
                     
-                    # Gửi xác nhận
                     response = {
                         'type': 'joined',
                         'player_id': player_id,
@@ -69,20 +65,16 @@ class P2PHost:
                     }
                     client_socket.send((json.dumps(response) + '\n').encode())
                     
-                    # Broadcast cập nhật phòng
                     self.broadcast_room_update()
                     
-                    # Bắt đầu nhận tin nhắn từ client này
                     client_thread = threading.Thread(target=self.handle_client, args=(client_socket, player_id))
                     client_thread.daemon = True
                     client_thread.start()
                     
                     print(f"Player {player_id} ({player_name}) joined. Total players: {len(self.players)}")
                     
-                    # Nếu đủ 2 người, có thể bắt đầu game (tối đa 4)
-                    # Tự động start khi đủ 4 người, hoặc host có thể start thủ công
                     if len(self.players) == 4:
-                        time.sleep(0.5)  # Đợi chút để mọi người nhận được room update
+                        time.sleep(0.5)
                         self.start_game()
                         
             except socket.timeout:
@@ -124,15 +116,15 @@ class P2PHost:
         self.broadcast(msg)
     
     def start_game(self):
-        self.game = Game()
+        num_players = len(self.players)
+        self.game = Game(num_players=num_players)
         self.game_started = True
-        print("Host: Starting game with players:", self.players)
+        print(f"Host: Starting game with {num_players} players:", self.players)
         
         msg = {'type': 'game_start'}
         self.broadcast(msg)
     
     def broadcast(self, msg):
-        """Gửi tin nhắn cho tất cả clients"""
         data = json.dumps(msg) + '\n'
         for client_socket in self.client_sockets.values():
             try:
@@ -145,7 +137,6 @@ class P2PHost:
             return
         
         try:
-            # Xử lý actions của người chơi
             with self.action_lock:
                 actions_to_process = self.player_actions.copy()
                 self.player_actions.clear()
@@ -161,13 +152,9 @@ class P2PHost:
                         player.start_dodge()
                         print(f"  Dodge started")
             
-            # Xử lý action của host (player 0)
-            # (Sẽ được xử lý từ controller)
             
-            # Update game
             self.game.update(dt)
             
-            # Tạo game state và broadcast
             game_state = self.create_game_state()
             msg = {
                 'type': 'game_state',
@@ -200,7 +187,9 @@ class P2PHost:
             'y': self.game.ball.y,
             'angle': self.game.ball.angle,
             'speed': self.game.ball.speed,
-            'countdown': self.game.ball.countdown
+            'countdown': self.game.ball.countdown,
+            'is_active': self.game.ball.is_active,
+            'spawn_timer': self.game.ball.spawn_timer
         }
         
         return {
@@ -239,11 +228,10 @@ class P2PClient:
         try:
             print(f"Attempting to connect to {host_ip}:{port}...")
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.settimeout(10)  # 10 second timeout
+            self.socket.settimeout(10)
             self.socket.connect((host_ip, port))
             print("Connected!")
             
-            # Gửi yêu cầu join
             msg = {
                 'type': 'join',
                 'room_code': room_code,
@@ -252,7 +240,6 @@ class P2PClient:
             self.socket.send(json.dumps(msg).encode())
             print("Join request sent")
             
-            # Nhận xác nhận
             data = self.socket.recv(1024).decode()
             print(f"Received: {data}")
             response = json.loads(data.strip())
@@ -263,10 +250,8 @@ class P2PClient:
                 self.connected = True
                 print(f"Joined as player {self.player_id}")
                 
-                # Remove timeout for ongoing communication
                 self.socket.settimeout(None)
                 
-                # Bắt đầu nhận tin nhắn
                 recv_thread = threading.Thread(target=self.receive_messages)
                 recv_thread.daemon = True
                 recv_thread.start()
@@ -352,19 +337,18 @@ class P2PGameController:
         self.clock = pygame.time.Clock()
         
         self.running = True
-        self.mode = None  # 'host' hoặc 'client'
+        self.mode = None
         self.host = None
         self.client = None
         self.game_renderer = GameRenderer()
         
-        self.current_view = "menu"  # "menu", "waiting", "game"
+        self.current_view = "menu"
         self.room_code = None
         self.player_name = ""
         self.host_ip = ""
-        self.error_message = None  # Thông báo lỗi
+        self.error_message = None
         
-        # UI state
-        self.input_active = None  # 'name', 'ip', 'code'
+        self.input_active = None
         
     def generate_room_code(self):
         return ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
@@ -376,11 +360,9 @@ class P2PGameController:
         font_normal = pygame.font.Font(None, 32)
         font_small = pygame.font.Font(None, 24)
         
-        # Title
         title = font_title.render("HIT & DODGE - P2P", True, BLACK)
         self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 50))
         
-        # Player name input
         name_label = font_normal.render("Your name:", True, BLACK)
         self.screen.blit(name_label, (100, 150))
         
@@ -389,17 +371,14 @@ class P2PGameController:
         name_text = font_normal.render(self.player_name, True, BLACK)
         self.screen.blit(name_text, (110, 195))
         
-        # Host button
         host_button = pygame.Rect(100, 270, 280, 60)
         pygame.draw.rect(self.screen, GREEN, host_button)
         host_text = font_normal.render("CREATE ROOM (HOST)", True, WHITE)
         self.screen.blit(host_text, (host_button.x + 20, host_button.y + 15))
         
-        # Join section
         join_label = font_normal.render("Or join a room:", True, BLACK)
         self.screen.blit(join_label, (420, 270))
         
-        # Host IP input
         ip_label = font_small.render("Host IP:", True, BLACK)
         self.screen.blit(ip_label, (420, 310))
         
@@ -408,7 +387,6 @@ class P2PGameController:
         ip_text = font_small.render(self.host_ip, True, BLACK)
         self.screen.blit(ip_text, (430, 345))
         
-        # Room code input
         code_label = font_small.render("Room code:", True, BLACK)
         self.screen.blit(code_label, (420, 390))
         
@@ -417,29 +395,24 @@ class P2PGameController:
         code_text = font_small.render(self.room_code or "", True, BLACK)
         self.screen.blit(code_text, (430, 425))
         
-        # Join button
         join_button = pygame.Rect(420, 475, 280, 50)
         pygame.draw.rect(self.screen, BLUE, join_button)
         join_text = font_normal.render("JOIN", True, WHITE)
         self.screen.blit(join_text, (join_button.x + 90, join_button.y + 10))
         
-        # Store rects for click detection
         self.host_button_rect = host_button
         self.join_button_rect = join_button
         self.name_box_rect = name_box
         self.ip_box_rect = ip_box
         self.code_box_rect = code_box
         
-        # Draw error message if any
         if self.error_message:
             error_font = pygame.font.Font(None, 24)
             error_text = error_font.render(self.error_message, True, RED)
             self.screen.blit(error_text, (SCREEN_WIDTH // 2 - error_text.get_width() // 2, 550))
         
     def get_local_ip(self):
-        """Lấy IP address của máy trong mạng LAN"""
         try:
-            # Tạo socket để lấy IP thật (không phải 127.0.0.1)
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
             local_ip = s.getsockname()[0]
@@ -447,7 +420,6 @@ class P2PGameController:
             return local_ip
         except:
             try:
-                # Fallback method
                 hostname = socket.gethostname()
                 local_ip = socket.gethostbyname(hostname)
                 return local_ip
@@ -465,7 +437,6 @@ class P2PGameController:
         self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 50))
         
         if self.mode == 'host':
-            # Display IP to share
             local_ip = self.get_local_ip()
             
             ip_label = font_small.render("Share this info with friends:", True, GRAY)
@@ -477,11 +448,9 @@ class P2PGameController:
             code_text = font_normal.render(f"Room Code: {self.room_code}", True, GREEN)
             self.screen.blit(code_text, (SCREEN_WIDTH // 2 - code_text.get_width() // 2, 170))
             
-            # Guide for friends
             guide = font_small.render("Friends enter IP and room code to join", True, GRAY)
             self.screen.blit(guide, (SCREEN_WIDTH // 2 - guide.get_width() // 2, 210))
         
-        # Display player list
         players_label = font_normal.render("Players:", True, BLACK)
         self.screen.blit(players_label, (100, 220))
         
@@ -493,7 +462,6 @@ class P2PGameController:
             self.screen.blit(player_text, (120, y))
             y += 40
         
-        # Display player count
         count_text = font_normal.render(f"{len(players)}/4 players", True, BLACK)
         self.screen.blit(count_text, (100, y + 20))
         
@@ -501,7 +469,6 @@ class P2PGameController:
             waiting_text = font_normal.render("Waiting for players...", True, GRAY)
             self.screen.blit(waiting_text, (SCREEN_WIDTH // 2 - waiting_text.get_width() // 2, 480))
             
-            # If host with at least 2 players, show start hint
             if self.mode == 'host' and len(players) >= 2:
                 start_hint = font_small.render("Press SPACE to start game (no need to wait for 4 players)", True, GREEN)
                 self.screen.blit(start_hint, (SCREEN_WIDTH // 2 - start_hint.get_width() // 2, 520))
@@ -579,7 +546,6 @@ class P2PGameController:
             self.client = None
     
     def handle_game_input(self, event):
-        """Xử lý input trong game"""
         if event.type == pygame.KEYDOWN:
             action = None
             
@@ -595,7 +561,6 @@ class P2PGameController:
                     self.client.send_action(action)
     
     def run(self):
-        """Main loop"""
         while self.running:
             dt = self.clock.tick(FPS) / 1000.0
             
@@ -608,14 +573,12 @@ class P2PGameController:
                     if self.current_view == "menu":
                         self.handle_menu_input(event)
                     elif self.current_view == "waiting":
-                        # Cho phép host start game bằng SPACE khi có ít nhất 2 người
                         if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                             if self.mode == 'host' and len(self.host.players) >= 2 and not self.host.game_started:
                                 self.host.start_game()
                     elif self.current_view == "game":
                         self.handle_game_input(event)
             
-            # Update
             if self.current_view == "waiting":
                 if self.mode == 'host' and self.host.game_started:
                     self.current_view = "game"
@@ -626,20 +589,19 @@ class P2PGameController:
                 if self.mode == 'host':
                     self.host.update_game(dt)
             
-            # Draw
             if self.current_view == "menu":
                 self.draw_menu()
             elif self.current_view == "waiting":
                 self.draw_waiting_room()
             elif self.current_view == "game":
                 if self.mode == 'host' and self.host.game:
-                    self.game_renderer.render(self.screen, self.host.game)
+                    game_state = self.host.create_game_state()
+                    self.game_renderer.render_online_game(self.screen, game_state, 0)
                 elif self.mode == 'client':
                     self.draw_client_game()
             
             pygame.display.flip()
         
-        # Cleanup
         if self.host:
             self.host.stop()
         if self.client:
@@ -649,79 +611,16 @@ class P2PGameController:
         sys.exit()
     
     def draw_client_game(self):
-        self.screen.fill(WHITE)
-        
         state = self.client.game_state
         if not state:
-            # Show loading message
+            self.screen.fill(WHITE)
             font = pygame.font.Font(None, 48)
             text = font.render("Loading game...", True, BLACK)
             text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
             self.screen.blit(text, text_rect)
             return
-        pygame.draw.circle(self.screen, DARK_GRAY, PLANET_CENTER, PLANET_RADIUS, 3)
-        ball = state['ball']
-        if ball['countdown'] > 0:
-            font = pygame.font.Font(None, 48)
-            countdown_text = str(int(ball['countdown']) + 1)
-            text = font.render(countdown_text, True, RED)
-            text_rect = text.get_rect(center=(int(ball['x']), int(ball['y'])))
-            self.screen.blit(text, text_rect)
-        else:
-            pygame.draw.circle(self.screen, BLACK, (int(ball['x']), int(ball['y'])), BALL_RADIUS)
-        from models.player_state import PlayerState
-        import math
         
-        for p in state['players']:
-            if p['state'] == PlayerState.ELIMINATED.value:
-                continue
-            
-            x, y = int(p['x']), int(p['y'])
-            color = tuple(p['color'])
-            
-            if p['state'] == PlayerState.DODGING.value:
-                pygame.draw.circle(self.screen, color, (x, y), PLAYER_RADIUS // 2)
-            else:
-                pygame.draw.circle(self.screen, color, (x, y), PLAYER_RADIUS)
-                if p['state'] == PlayerState.STANDING.value:
-                    hit_cooldown = p.get('hit_cooldown', 0)
-                    if hit_cooldown <= 0:
-                        s = pygame.Surface((HIT_RANGE*2, HIT_RANGE*2), pygame.SRCALPHA)
-                        pygame.draw.circle(s, (*color, 50), (HIT_RANGE, HIT_RANGE), HIT_RANGE, 2)
-                        self.screen.blit(s, (x - HIT_RANGE, y - HIT_RANGE))
-                    else:
-                        s = pygame.Surface((HIT_RANGE*2, HIT_RANGE*2), pygame.SRCALPHA)
-                        pygame.draw.circle(s, (*color, 20), (HIT_RANGE, HIT_RANGE), HIT_RANGE, 1)
-                        self.screen.blit(s, (x - HIT_RANGE, y - HIT_RANGE))
-                stick_length = 35
-                if p['id'] == 0:
-                    base_angle = 0
-                elif p['id'] == 1:
-                    base_angle = math.pi/2
-                elif p['id'] == 2:
-                    base_angle = math.pi
-                else:
-                    base_angle = -math.pi/2
-                
-                stick_angle = base_angle + math.radians(p['stick_angle'])
-                stick_end_x = p['x'] + stick_length * math.cos(stick_angle)
-                stick_end_y = p['y'] + stick_length * math.sin(stick_angle)
-                pygame.draw.line(self.screen, BLACK, (x, y), 
-                               (int(stick_end_x), int(stick_end_y)), 4)
-        if state['game_over']:
-            font = pygame.font.Font(None, 64)
-            winner_id = state['winner_id']
-            if winner_id is not None:
-                if winner_id == self.client.player_id:
-                    text = font.render("You Win!", True, GREEN)
-                else:
-                    winner_name = self.client.players.get(winner_id, f'Player {winner_id+1}')
-                    text = font.render(f"{winner_name} Wins!", True, RED)
-            else:
-                text = font.render("Draw!", True, BLACK)
-            
-            text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, 50))
-            self.screen.blit(text, text_rect)
+        self.game_renderer.render_online_game(self.screen, state, self.client.player_id)
 
 
 def main():

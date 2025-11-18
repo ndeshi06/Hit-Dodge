@@ -1,6 +1,3 @@
-"""
-Player state enumeration
-"""
 from enum import Enum
 
 class PlayerState(Enum):

@@ -1,6 +1,3 @@
-"""
-Game server for Hit & Dodge multiplayer
-"""
 import socket
 import threading
 import time
@@ -14,7 +11,7 @@ class GameRoom:
     def __init__(self, room_id, max_players=4):
         self.room_id = room_id
         self.max_players = max_players
-        self.players = {}  # client_socket -> player_info
+        self.players = {}
         self.game = None
         self.game_running = False
         self.last_update = time.time()
@@ -30,10 +27,8 @@ class GameRoom:
             'socket': client_socket
         }
         
-        # Send room update to all players
         self.send_room_update()
         
-        # Start game if room is full
         if len(self.players) == self.max_players:
             self.start_game()
         
@@ -42,14 +37,11 @@ class GameRoom:
     def remove_player(self, client_socket):
         if client_socket in self.players:
             del self.players[client_socket]
-            # Send room update to remaining players
             self.send_room_update()
-            # Stop game if not enough players
             if len(self.players) < self.max_players:
                 self.game_running = False
     
     def send_room_update(self):
-        """Send room update with player list to all players"""
         player_names = []
         for player_info in self.players.values():
             player_names.append(player_info['name'])
@@ -68,7 +60,6 @@ class GameRoom:
         self.game = Game()
         self.game_running = True
         
-        # Notify all players that game is starting
         start_msg = NetworkMessage(MessageType.GAME_START)
         self.broadcast_message(start_msg)
     
@@ -97,12 +88,10 @@ class GameRoom:
         
         self.game.update(dt)
         
-        # Send game state to all players
         game_state = self.serialize_game_state()
         state_msg = create_game_state_message(game_state)
         self.broadcast_message(state_msg)
         
-        # Check if game is over
         if self.game.game_over:
             self.game_running = False
             game_over_msg = NetworkMessage(MessageType.GAME_OVER, {
@@ -140,7 +129,6 @@ class GameRoom:
             try:
                 client_socket.send((message.to_json() + '\n').encode())
             except:
-                # Remove disconnected client
                 self.remove_player(client_socket)
 
 class GameServer:
@@ -149,11 +137,10 @@ class GameServer:
         self.port = port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.rooms = {}  # room_id -> GameRoom
+        self.rooms = {}
         self.running = False
         
     def generate_room_id(self):
-        """Generate a unique 4-character room ID"""
         while True:
             room_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
             if room_id not in self.rooms:
@@ -166,7 +153,6 @@ class GameServer:
         
         print(f"Game server started on {self.host}:{self.port}")
         
-        # Start game update thread
         update_thread = threading.Thread(target=self.game_update_loop)
         update_thread.daemon = True
         update_thread.start()
@@ -192,11 +178,10 @@ class GameServer:
         self.socket.close()
     
     def game_update_loop(self):
-        """Update all active games"""
         while self.running:
             for room in list(self.rooms.values()):
                 room.update_game()
-            time.sleep(1/60)  # 60 FPS
+            time.sleep(1/60)
     
     def handle_client(self, client_socket, address):
         try:
@@ -215,7 +200,6 @@ class GameServer:
         except Exception as e:
             print(f"Error handling client {address}: {e}")
         finally:
-            # Remove client from any room
             for room in self.rooms.values():
                 room.remove_player(client_socket)
             client_socket.close()
@@ -244,7 +228,6 @@ class GameServer:
         
         try:
             client_socket.send((response.to_json() + '\n').encode())
-            # Send initial room update
             room.send_room_update()
         except:
             pass
@@ -281,7 +264,6 @@ class GameServer:
         
         try:
             client_socket.send((response.to_json() + '\n').encode())
-            # Send room update to show all players
             room.send_room_update()
         except:
             pass
@@ -289,7 +271,6 @@ class GameServer:
     def handle_player_action(self, client_socket, data):
         action = data.get('action')
         
-        # Find which room this client is in
         for room in self.rooms.values():
             if client_socket in room.players:
                 room.handle_player_action(client_socket, action)

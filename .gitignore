@@ -137,3 +137,5 @@ Thumbs.db
 *.db
 saves/
 logs/
+
+remove_comments.py

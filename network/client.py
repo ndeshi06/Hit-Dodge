@@ -1,6 +1,3 @@
-"""
-Network client for Hit & Dodge multiplayer
-"""
 import socket
 import threading
 import time
@@ -23,7 +20,6 @@ class NetworkClient:
             self.socket.connect((self.host, self.port))
             self.connected = True
             
-            # Start receiving thread
             receive_thread = threading.Thread(target=self.receive_messages)
             receive_thread.daemon = True
             receive_thread.start()
@@ -73,7 +69,6 @@ class NetworkClient:
         if message.type in self.message_handlers:
             self.message_handlers[message.type](message.data)
         
-        # Handle common messages
         if message.type == MessageType.ROOM_CREATED:
             self.room_id = message.data.get('room_id')
             self.player_id = message.data.get('player_id')

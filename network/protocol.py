@@ -1,17 +1,12 @@
-"""
-Network protocol definitions for Hit & Dodge game
-"""
 from enum import Enum
 import json
 
 class MessageType(Enum):
-    # Client to Server
     JOIN_ROOM = "join_room"
     CREATE_ROOM = "create_room"
     LEAVE_ROOM = "leave_room"
     PLAYER_ACTION = "player_action"
     
-    # Server to Client
     ROOM_JOINED = "room_joined"
     ROOM_CREATED = "room_created"
     ROOM_FULL = "room_full"
